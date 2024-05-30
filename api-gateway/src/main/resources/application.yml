@@ -1,0 +1,26 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:file:./api-gateway/.env[.properties]
+  main:
+    web-application-type: reactive
+
+management:
+  zipkin:
+    tracing:
+#      endpoint: ${ZIPKIN_SERVER_URL}
+      sampling:
+        probability: 1
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER_URL}
