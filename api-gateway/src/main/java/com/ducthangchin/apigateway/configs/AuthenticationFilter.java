@@ -1,25 +1,17 @@
 package com.ducthangchin.apigateway.configs;
 
-import com.ducthangchin.clientfeign.salary.SalaryClient;
-import com.ducthangchin.clientfeign.user.AuthClient;
-import com.ducthangchin.commons.models.UserDetails;
 import com.ducthangchin.commons.utils.JwtUtils;
-import io.jsonwebtoken.Claims;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
-import java.util.Objects;
 
 @RefreshScope
 @Component

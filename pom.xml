@@ -20,6 +20,7 @@
         <module>salary-service</module>
         <module>api-gateway</module>
         <module>commons</module>
+        <module>opal-service</module>
     </modules>
 
     <properties>
