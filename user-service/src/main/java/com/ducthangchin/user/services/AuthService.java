@@ -1,5 +1,6 @@
 package com.ducthangchin.user.services;
 
+import com.ducthangchin.commons.models.UserDetails;
 import com.ducthangchin.user.entities.VDTRole;
 import com.ducthangchin.user.entities.VDTUser;
 import com.ducthangchin.user.models.AuthRequest;
@@ -64,10 +65,19 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
+
+        UserDetails userDetails = UserDetails.builder()
+                .id(user.getId())
+                .roles(user.getRoles().stream().map(VDTRole::getRoleName).collect(Collectors.toList()))
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .build();
+
         // Create AuthResponse
         AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .user(userDetails)
                 .build();
 
         return authResponse;

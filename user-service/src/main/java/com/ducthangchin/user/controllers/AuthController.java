@@ -1,23 +1,21 @@
 package com.ducthangchin.user.controllers;
 
+import com.ducthangchin.clientfeign.opal.OpalCLient;
 import com.ducthangchin.clientfeign.salary.SalaryClient;
 import com.ducthangchin.commons.models.UserDetails;
+import com.ducthangchin.commons.models.opal.OpalRequest;
+import com.ducthangchin.commons.models.opal.OpalUserInput;
 import com.ducthangchin.commons.utils.JwtUtils;
 import com.ducthangchin.user.models.AuthRequest;
 import com.ducthangchin.user.models.AuthResponse;
 import com.ducthangchin.user.models.UserRegistrationForm;
 import com.ducthangchin.user.models.UserRegistrationResponse;
 import com.ducthangchin.user.services.AuthService;
-import com.ducthangchin.user.services.JwtService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/user/auth")
@@ -25,9 +23,9 @@ import java.util.Map;
 @Slf4j
 public class AuthController {
     private final AuthService authService;
-    private final JwtService jwtService;
     private final SalaryClient salaryClient;
     private final JwtUtils jwtUtils;
+    private final OpalCLient opalCLient;
 
     @GetMapping(value = "/health-check")
     public ResponseEntity<String> healthCheck() {
@@ -41,8 +39,20 @@ public class AuthController {
     }
 
     @PostMapping(value = "/register")
-    public ResponseEntity<UserRegistrationResponse> register(@RequestBody UserRegistrationForm userRegistrationForm) {
+    public ResponseEntity<UserRegistrationResponse> register(
+            @RequestHeader("Authorization") String token,
+            @RequestBody UserRegistrationForm userRegistrationForm) {
         try {
+            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .user(new OpalUserInput(userDetails))
+                    .build();
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
             return ResponseEntity.ok(authService.register(userRegistrationForm));
         } catch (Exception e) {
             log.info(e.getMessage());
@@ -61,34 +71,19 @@ public class AuthController {
     }
 
     // check is valid token
-    @GetMapping(value = "/validate-token")
-    public ResponseEntity<Boolean> validateToken(@RequestHeader("Authorization") String token) {
-        log.info(jwtUtils.extractClaimsWithoutKey(token).toString());
-        return ResponseEntity.ok(jwtService.isValidToken(token));
-    }
-
-    @GetMapping(value = "/extract-claims")
-    public ResponseEntity<UserDetails> extractClaims(@RequestHeader("Authorization") String token) {
-        try {
-            return ResponseEntity.ok(jwtService.extractClaims(token));
-        } catch (Exception e) {
-            log.info(e.getMessage());
-            return ResponseEntity.internalServerError().body(UserDetails.builder().build());
-        }
-    }
-
-    @GetMapping(value = "/current-header")
-    public Map<String, String> getCurrentHeaders(HttpServletRequest request) {
-        Map<String, String> headers = new HashMap<>();
-
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            String headerValue = request.getHeader(headerName);
-            headers.put(headerName, headerValue);
-        }
-
-        return headers;
-    }
-
+//    @GetMapping(value = "/validate-token")
+//    public ResponseEntity<Boolean> validateToken(@RequestHeader("Authorization") String token) {
+//        log.info(jwtUtils.extractClaimsWithoutKey(token).toString());
+//        return ResponseEntity.ok(jwtService.isValidToken(token));
+//    }
+//
+//    @GetMapping(value = "/extract-claims")
+//    public ResponseEntity<UserDetails> extractClaims(@RequestHeader("Authorization") String token) {
+//        try {
+//            return ResponseEntity.ok(jwtService.extractClaims(token));
+//        } catch (Exception e) {
+//            log.info(e.getMessage());
+//            return ResponseEntity.internalServerError().body(UserDetails.builder().build());
+//        }
+//    }
 }

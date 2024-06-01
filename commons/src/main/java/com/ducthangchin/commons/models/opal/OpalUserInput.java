@@ -1,5 +1,6 @@
 package com.ducthangchin.commons.models.opal;
 
+import com.ducthangchin.commons.models.UserDetails;
 import lombok.*;
 
 import java.util.List;
@@ -14,4 +15,9 @@ public class OpalUserInput {
     private Long manager_id;
     private List<String> roles;
     private List<Long> subordinate_ids;
+
+    public OpalUserInput(UserDetails userDetails) {
+        this.id = userDetails.getId();
+        this.roles = userDetails.getRoles();
+    }
 }
