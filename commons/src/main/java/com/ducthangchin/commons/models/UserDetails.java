@@ -14,4 +14,5 @@ public class UserDetails {
     private String email;
     private String fullName;
     private List<String> roles;
+    private List<Long> subordinateIds;
 }

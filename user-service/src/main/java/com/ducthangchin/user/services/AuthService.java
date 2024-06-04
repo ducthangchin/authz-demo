@@ -71,6 +71,7 @@ public class AuthService {
                 .roles(user.getRoles().stream().map(VDTRole::getRoleName).collect(Collectors.toList()))
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .subordinateIds(user.getSubordinates().stream().map(VDTUser::getId).collect(Collectors.toList()))
                 .build();
 
         // Create AuthResponse

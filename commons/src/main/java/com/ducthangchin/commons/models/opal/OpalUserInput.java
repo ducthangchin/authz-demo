@@ -19,5 +19,6 @@ public class OpalUserInput {
     public OpalUserInput(UserDetails userDetails) {
         this.id = userDetails.getId();
         this.roles = userDetails.getRoles();
+        this.subordinate_ids = userDetails.getSubordinateIds();
     }
 }

@@ -35,6 +35,7 @@ public class JwtUtils {
                 .email(claims.get("email", String.class))
                 .fullName(claims.get("fullName", String.class))
                 .roles(claims.get("roles", List.class))
+                .subordinateIds(claims.get("subordinateIds", List.class))
                 .build();
     }
 
@@ -48,6 +49,7 @@ public class JwtUtils {
                 .email(claims.get("email", String.class))
                 .fullName(claims.get("fullName", String.class))
                 .roles(claims.get("roles", List.class))
+                .subordinateIds(claims.get("subordinateIds", List.class))
                 .build();
     }
 }

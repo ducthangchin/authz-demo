@@ -12,4 +12,8 @@ public class ResourceInput {
     private Long id;
     private Long created_by;
     private boolean blocked;
+
+    public ResourceInput(ResourceType resourceType) {
+        this.type = resourceType;
+    }
 }
