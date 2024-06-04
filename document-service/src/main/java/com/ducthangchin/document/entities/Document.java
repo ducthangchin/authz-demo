@@ -32,6 +32,7 @@ public class Document {
     private boolean blocked;
     private Long createdBy;
 
+    @Column(nullable = false)
     @CreationTimestamp
     private Date createdAt;
     @UpdateTimestamp
