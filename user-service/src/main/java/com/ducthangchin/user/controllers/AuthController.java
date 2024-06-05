@@ -64,9 +64,9 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
         try {
             return ResponseEntity.ok(authService.login(authRequest));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             log.info(e.getMessage());
-            return ResponseEntity.internalServerError().body(AuthResponse.builder().build());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(AuthResponse.builder().build());
         }
     }
 

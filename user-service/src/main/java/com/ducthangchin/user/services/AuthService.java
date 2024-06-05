@@ -50,15 +50,15 @@ public class AuthService {
                 .build();
     }
 
-    public AuthResponse login(AuthRequest authRequest) throws Exception {
+    public AuthResponse login(AuthRequest authRequest) throws IllegalArgumentException {
         // Authenticate user
         VDTUser user = vdtUserRepository.findByEmail(authRequest.getEmail());
 
         if (user == null) {
-            throw new Exception("User does not exist");
+            throw new IllegalArgumentException("User not found!");
         }
         if (!passwordEncoder.matches(authRequest.getPassword(), user.getPassword())) {
-            throw new Exception("Wrong password!");
+            throw new IllegalArgumentException("Invalid password!");
         }
 
         // Generate JWT tokens
