@@ -31,6 +31,7 @@ public class Document {
     @Column(columnDefinition = "boolean default false")
     private boolean blocked;
     private Long createdBy;
+    private String createdByUsername;
 
     @Column(nullable = false)
     @CreationTimestamp

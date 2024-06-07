@@ -16,6 +16,7 @@ public class DocumentDTO {
     private String name;
     private Boolean blocked;
     private Long createdBy;
+    private String createdByUsername;
     private Date createdAt;
     private Date updatedAt;
 }

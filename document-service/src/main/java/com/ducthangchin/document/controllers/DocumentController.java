@@ -85,6 +85,7 @@ public class DocumentController {
                     .name(document.getName())
                     .content(document.getContent())
                     .createdBy(userDetails.getId())
+                    .createdByUsername(userDetails.getFullName())
                     .build();
             return ResponseEntity.ok(documentService.createDocument(newDocument));
         } catch (Exception e) {
@@ -99,11 +100,17 @@ public class DocumentController {
             @PathVariable Long id,
             @RequestBody DocumentRequest document) {
         try {
+            Document updatedDocument = documentService.getDocument(id);
+
+            if (updatedDocument == null) {
+                return ResponseEntity.notFound().build();
+            }
+
             UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
             ResourceInput resource = ResourceInput.builder()
                     .type(ResourceType.document)
                     .id(id)
-                    .created_by(userDetails.getId())
+                    .created_by(updatedDocument.getCreatedBy())
                     .build();
             OpalRequest opalRequest = OpalRequest.builder()
                     .user(new OpalUserInput(userDetails))
@@ -116,13 +123,8 @@ public class DocumentController {
             if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            Document updatedDocument = Document.builder()
-                    .id(id)
-                    .name(document.getName())
-                    .content(document.getContent())
-                    .createdBy(userDetails.getId())
-                    .build();
-            return ResponseEntity.ok(documentService.updateDocument(updatedDocument));
+
+            return ResponseEntity.ok(documentService.updateDocument(updatedDocument, document));
         } catch (Exception e) {
             log.info(e.getMessage());
             return ResponseEntity.internalServerError().body(null);

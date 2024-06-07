@@ -2,6 +2,7 @@ package com.ducthangchin.document.services;
 
 import com.ducthangchin.document.dto.DocumentDTO;
 import com.ducthangchin.document.entities.Document;
+import com.ducthangchin.document.model.DocumentRequest;
 import com.ducthangchin.document.repositories.DocumentRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,15 @@ public class DocumentService {
         return documentRepository.saveAndFlush(document);
     }
 
-    public Document updateDocument(Document document) {
+    public Document updateDocument(Document document, DocumentRequest documentRequest){
+        if (documentRequest.getName() != null) {
+            document.setName(documentRequest.getName());
+        }
+
+        if (documentRequest.getContent() != null) {
+            document.setContent(documentRequest.getContent());
+        }
+
         return documentRepository.saveAndFlush(document);
     }
 
