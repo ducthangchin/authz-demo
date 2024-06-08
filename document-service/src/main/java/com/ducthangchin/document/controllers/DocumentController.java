@@ -135,12 +135,17 @@ public class DocumentController {
     public ResponseEntity<Void> deleteDocument(
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
+        Document document =  documentService.getDocument(id);
+        if (document == null) {
+            return ResponseEntity.notFound().build();
+        }
+
         try {
             UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
             ResourceInput resource = ResourceInput.builder()
                     .type(ResourceType.document)
                     .id(id)
-                    .created_by(userDetails.getId())
+                    .created_by(document.getCreatedBy())
                     .build();
             OpalRequest opalRequest = OpalRequest.builder()
                     .user(new OpalUserInput(userDetails))
