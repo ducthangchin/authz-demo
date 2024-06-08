@@ -7,6 +7,7 @@ import io.jsonwebtoken.impl.DefaultJwtParser;
 
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class JwtUtils {
     public boolean isValidToken(String jwtToken, String jwtSecret) {
@@ -30,12 +31,18 @@ public class JwtUtils {
 
     public UserDetails extractClaims(String jwtToken, String jwtSecret) {
         Claims claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(jwtToken).getBody();
+
+        List<?> subordinateIdsRaw = claims.get("subordinateIds", List.class);
+        List<Long> subordinateIds = subordinateIdsRaw.stream()
+                .map(id -> Long.parseLong(id.toString()))
+                .collect(Collectors.toList());
+
         return UserDetails.builder()
                 .id(claims.get("id", Long.class))
                 .email(claims.get("email", String.class))
                 .fullName(claims.get("fullName", String.class))
                 .roles(claims.get("roles", List.class))
-                .subordinateIds(claims.get("subordinateIds", List.class))
+                .subordinateIds(subordinateIds)
                 .build();
     }
 
@@ -44,12 +51,18 @@ public class JwtUtils {
         String unsignedToken = splitToken[0] + "." + splitToken[1] + ".";
         DefaultJwtParser parser = new DefaultJwtParser();
         Claims claims = parser.parseClaimsJwt(unsignedToken).getBody();
+
+        List<?> subordinateIdsRaw = claims.get("subordinateIds", List.class);
+        List<Long> subordinateIds = subordinateIdsRaw.stream()
+                .map(id -> Long.parseLong(id.toString()))
+                .collect(Collectors.toList());
+
         return UserDetails.builder()
                 .id(claims.get("id", Long.class))
                 .email(claims.get("email", String.class))
                 .fullName(claims.get("fullName", String.class))
                 .roles(claims.get("roles", List.class))
-                .subordinateIds(claims.get("subordinateIds", List.class))
+                .subordinateIds(subordinateIds)
                 .build();
     }
 }

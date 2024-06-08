@@ -56,6 +56,7 @@ public class JwtService {
                 .claim("email", user.getEmail())
                 .claim("fullName", user.getFullName())
                 .claim("roles", user.getRoles().stream().map(VDTRole::getRoleName).collect(Collectors.toList()))
+                .claim("subordinateIds", user.getSubordinates().stream().map(VDTUser::getId).collect(Collectors.toList()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
