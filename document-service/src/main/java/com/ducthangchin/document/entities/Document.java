@@ -27,7 +27,10 @@ public class Document {
     )
     private Long id;
     private String name;
+
+    @Lob
     private String content;
+
     @Column(columnDefinition = "boolean default false")
     private boolean blocked;
     private Long createdBy;
