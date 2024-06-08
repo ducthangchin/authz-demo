@@ -146,6 +146,7 @@ public class DocumentController {
                     .type(ResourceType.document)
                     .id(id)
                     .created_by(document.getCreatedBy())
+                    .blocked(document.isBlocked())
                     .build();
             OpalRequest opalRequest = OpalRequest.builder()
                     .user(new OpalUserInput(userDetails))
@@ -173,11 +174,16 @@ public class DocumentController {
             @RequestBody Boolean block
     ) {
         try {
+            Document document =  documentService.getDocument(id);
+            if (document == null) {
+                return ResponseEntity.notFound().build();
+            }
+
             UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
             ResourceInput resource = ResourceInput.builder()
                     .type(ResourceType.document)
                     .id(id)
-                    .created_by(userDetails.getId())
+                    .created_by(document.getCreatedBy())
                     .build();
             OpalRequest opalRequest = OpalRequest.builder()
                     .user(new OpalUserInput(userDetails))

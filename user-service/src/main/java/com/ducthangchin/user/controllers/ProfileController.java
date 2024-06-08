@@ -5,6 +5,7 @@ import com.ducthangchin.commons.models.UserDetails;
 import com.ducthangchin.commons.models.opal.OpalRequest;
 import com.ducthangchin.commons.models.opal.OpalUserInput;
 import com.ducthangchin.commons.utils.JwtUtils;
+import com.ducthangchin.user.dto.UserDTO;
 import com.ducthangchin.user.entities.VDTUser;
 import com.ducthangchin.user.models.ProfileUpdateRequest;
 import com.ducthangchin.user.services.UserService;
@@ -13,6 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/user/profile")
@@ -23,18 +27,8 @@ public class ProfileController {
     private final JwtUtils jwtUtils;
     private final OpalCLient opalCLient;
 
-    @GetMapping("/{id}")
-    public ResponseEntity<VDTUser> getProfile(@RequestHeader("Authorization") String token, @PathVariable Long id) {
-        VDTUser user = userService.getUserById(id);
-        if (user == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(user);
-    }
-
-    //update profile
-    @PutMapping("/{id}")
-    public ResponseEntity<VDTUser> updateProfile(@RequestHeader("Authorization") String token, @PathVariable Long id, @RequestBody ProfileUpdateRequest profile) {
+    @GetMapping
+    public ResponseEntity<List<UserDTO>> getALlProfiles(@RequestHeader("Authorization") String token) {
         UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
         OpalRequest opalRequest = OpalRequest.builder()
                 .user(new OpalUserInput(userDetails))
@@ -46,7 +40,38 @@ public class ProfileController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        if (userDetails == null || !userDetails.getId().equals(id)) {
+        return ResponseEntity.ok(
+                userService.getAllUsers()
+                        .stream()
+                        .map(UserDTO::new)
+                        .collect(Collectors.toList())
+        );
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getProfile(@RequestHeader("Authorization") String token, @PathVariable Long id) {
+        VDTUser user = userService.getUserById(id);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(new UserDTO(user));
+    }
+
+    //update profile
+    @PutMapping("/{id}")
+    public ResponseEntity<UserDTO> updateProfile(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id,
+            @RequestBody ProfileUpdateRequest profile) {
+        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
+        OpalRequest opalRequest = OpalRequest.builder()
+                .user(new OpalUserInput(userDetails))
+                .build();
+
+        log.info("Allowing Opal request: {}", opalRequest);
+
+        if (!opalCLient.allow(opalRequest)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -56,6 +81,6 @@ public class ProfileController {
         }
 
         userService.updateUserProfile(existingUser, profile);
-        return ResponseEntity.ok(existingUser);
+        return ResponseEntity.ok(new UserDTO(existingUser));
     }
 }

@@ -23,6 +23,10 @@ public class UserService {
         return vdtUserRepository.findById(id).orElse(null);
     }
 
+    public List<VDTUser> getAllUsers() {
+        return vdtUserRepository.findAll();
+    }
+
     public VDTUser getUserRoles(Long id) {
         return vdtUserRepository.findById(id).orElse(null);
     }
@@ -48,7 +52,7 @@ public class UserService {
         }
 
         // Update roles
-        if (profile.getRoles() != null && profile.getRoles().length > 0) {
+        if (profile.getRoles() != null) {
             Collection<VDTRole> roles = vdtRoleRepository.findAllById(List.of(profile.getRoles()));
             if (roles.size() != profile.getRoles().length) {
                 // Handle some roles not found
