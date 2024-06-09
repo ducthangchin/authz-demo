@@ -1,11 +1,11 @@
 package com.ducthangchin.user.controllers;
 
-import com.ducthangchin.clientfeign.opal.OpalCLient;
+import com.ducthangchin.clientfeign.opal.OpalClient;
 import com.ducthangchin.clientfeign.salary.SalaryClient;
-import com.ducthangchin.commons.models.UserDetails;
+import com.ducthangchin.commons.models.opal.Action;
 import com.ducthangchin.commons.models.opal.OpalRequest;
-import com.ducthangchin.commons.models.opal.OpalUserInput;
-import com.ducthangchin.commons.utils.JwtUtils;
+import com.ducthangchin.commons.models.opal.Resource;
+import com.ducthangchin.commons.models.opal.ResourceType;
 import com.ducthangchin.user.models.AuthRequest;
 import com.ducthangchin.user.models.AuthResponse;
 import com.ducthangchin.user.models.UserRegistrationForm;
@@ -24,14 +24,14 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService authService;
     private final SalaryClient salaryClient;
-    private final JwtUtils jwtUtils;
-    private final OpalCLient opalCLient;
+    private final OpalClient opalCLient;
 
     @GetMapping(value = "/health-check")
     public ResponseEntity<String> healthCheck() {
         try {
             String salaryServiceHealthCheck = salaryClient.healthCheck();
-            return ResponseEntity.ok("User authentication service is up and running\n" + salaryServiceHealthCheck);
+            return ResponseEntity.ok("User authentication service is up and running\n" +
+                    salaryServiceHealthCheck);
         } catch (Exception e) {
             log.info(e.getMessage());
             return ResponseEntity.internalServerError().body("User authentication service is down");
@@ -40,12 +40,14 @@ public class AuthController {
 
     @PostMapping(value = "/register")
     public ResponseEntity<UserRegistrationResponse> register(
-            @RequestHeader("Authorization") String token,
-            @RequestBody UserRegistrationForm userRegistrationForm) {
+            @RequestHeader("X-user-id") Long userId,
+            @RequestBody UserRegistrationForm userRegistrationForm
+    ) {
         try {
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
+                    .action(Action.create)
+                    .resource(new Resource(ResourceType.profile))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -53,11 +55,12 @@ public class AuthController {
             if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            return ResponseEntity.ok(authService.register(userRegistrationForm));
         } catch (Exception e) {
             log.info(e.getMessage());
-            return ResponseEntity.internalServerError().body(UserRegistrationResponse.builder().build());
+            return ResponseEntity.internalServerError().body(null);
         }
+
+        return ResponseEntity.ok(authService.register(userRegistrationForm));
     }
 
     @PostMapping(value = "/login")
@@ -69,21 +72,4 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(AuthResponse.builder().build());
         }
     }
-
-    // check is valid token
-//    @GetMapping(value = "/validate-token")
-//    public ResponseEntity<Boolean> validateToken(@RequestHeader("Authorization") String token) {
-//        log.info(jwtUtils.extractClaimsWithoutKey(token).toString());
-//        return ResponseEntity.ok(jwtService.isValidToken(token));
-//    }
-//
-//    @GetMapping(value = "/extract-claims")
-//    public ResponseEntity<UserDetails> extractClaims(@RequestHeader("Authorization") String token) {
-//        try {
-//            return ResponseEntity.ok(jwtService.extractClaims(token));
-//        } catch (Exception e) {
-//            log.info(e.getMessage());
-//            return ResponseEntity.internalServerError().body(UserDetails.builder().build());
-//        }
-//    }
 }

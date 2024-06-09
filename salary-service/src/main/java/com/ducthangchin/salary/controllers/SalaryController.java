@@ -1,9 +1,9 @@
 package com.ducthangchin.salary.controllers;
 
-import com.ducthangchin.clientfeign.opal.OpalCLient;
-import com.ducthangchin.commons.models.UserDetails;
+import com.ducthangchin.clientfeign.opal.OpalClient;
+import com.ducthangchin.clientfeign.user.AuthClient;
+import com.ducthangchin.commons.models.dto.UserDTO;
 import com.ducthangchin.commons.models.opal.*;
-import com.ducthangchin.commons.utils.JwtUtils;
 import com.ducthangchin.salary.entities.Salary;
 import com.ducthangchin.salary.models.SalaryInput;
 import com.ducthangchin.salary.models.SalaryUpdateInput;
@@ -21,9 +21,9 @@ import java.util.List;
 @AllArgsConstructor
 @Slf4j
 public class SalaryController {
-    private final OpalCLient opalCLient;
-    private final JwtUtils jwtUtils;
+    private final OpalClient opalCLient;
     private final SalaryService salaryService;
+    private final AuthClient authClient;
 
     //health check
     @GetMapping(value = "/health-check")
@@ -35,34 +35,37 @@ public class SalaryController {
     //get all salaries
     @GetMapping
     public ResponseEntity<List<Salary>> getAllSalaries(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @RequestParam(value = "managed", required = false, defaultValue = "false") boolean managed
     ) {
-        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
         try {
-            OpalUserInput opalUserInput = new OpalUserInput(userDetails);
-            if (!opalCLient.allow(OpalRequest.builder()
-                    .user(opalUserInput)
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .userId(userId)
                     .action(Action.read)
-                    .resource(new ResourceInput(ResourceType.salary))
-                    .build())) {
+                    .resource(new Resource(ResourceType.salary))
+                    .build();
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            log.info(e.getMessage());
+            return ResponseEntity.internalServerError().body(null);
         }
 
         if (managed) {
-            return ResponseEntity.ok(salaryService.getSalariesByAccountant(userDetails.getId()));
+            return ResponseEntity.ok(salaryService.getSalariesByAccountant(userId));
         }
-        return ResponseEntity.ok(salaryService.getUserSalaries(userDetails.getId()));
+        return ResponseEntity.ok(salaryService.getUserSalaries(userId));
     }
 
 
     //get salary by id
     @GetMapping(value = "/{id}")
     public ResponseEntity<Salary> getSalaryById(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @PathVariable Long id
     ) {
         Salary salary = salaryService.getSalaryById(id);
@@ -71,22 +74,21 @@ public class SalaryController {
             return ResponseEntity.notFound().build();
         }
 
-        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-        if (!salary.getEmployeeId().equals(userDetails.getId()) || !salary.getCreatedBy().equals(userDetails.getId())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
         try {
-            OpalUserInput opalUserInput = new OpalUserInput(userDetails);
-            if (!opalCLient.allow(OpalRequest.builder()
-                    .user(opalUserInput)
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .userId(userId)
                     .action(Action.read)
-                    .resource(new ResourceInput(ResourceType.salary))
-                    .build())) {
+                    .resource(new Resource(ResourceType.salary))
+                    .build();
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            log.info(e.getMessage());
+            return ResponseEntity.internalServerError().body(null);
         }
 
         return ResponseEntity.ok(salary);
@@ -95,31 +97,39 @@ public class SalaryController {
     //create salary
     @PostMapping
     public ResponseEntity<Salary> createSalary(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @RequestBody SalaryInput salaryInput
     ) {
-        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
         try {
-            OpalUserInput opalUserInput = new OpalUserInput(userDetails);
-            if (!opalCLient.allow(OpalRequest.builder()
-                    .user(opalUserInput)
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .userId(userId)
                     .action(Action.create)
-                    .resource(new ResourceInput(ResourceType.salary))
-                    .build())) {
+                    .resource(new Resource(ResourceType.salary))
+                    .build();
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } catch (Exception e) {
             log.info(e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.internalServerError().body(null);
         }
 
-        return ResponseEntity.ok(salaryService.createSalary(salaryInput, userDetails));
+        UserDTO userDTO = authClient.getProfile(userId).getBody();
+
+        if (userDTO == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(salaryService.createSalary(salaryInput, userDTO));
     }
 
     //update salary
     @PutMapping(value = "/{id}")
     public ResponseEntity<Salary> updateSalary(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @PathVariable Long id,
             @RequestBody SalaryUpdateInput salaryInput
     ) {
@@ -128,33 +138,36 @@ public class SalaryController {
             return ResponseEntity.notFound().build();
         }
 
-        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-
         try {
-            OpalUserInput opalUserInput = new OpalUserInput(userDetails);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.salary)
-                    .id(id)
-                    .created_by(userDetails.getId())
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .userId(userId)
+                    .action(Action.create)
+                    .resource(new Resource(ResourceType.salary))
                     .build();
-            if (!opalCLient.allow(OpalRequest.builder()
-                    .user(opalUserInput)
-                    .action(Action.update)
-                    .resource(resource)
-                    .build())) {
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            log.info(e.getMessage());
+            return ResponseEntity.internalServerError().body(null);
         }
 
-        return ResponseEntity.ok(salaryService.updateSalary(salary, salaryInput, userDetails));
+        UserDTO userDTO = authClient.getProfile(userId).getBody();
+
+        if (userDTO == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(salaryService.updateSalary(salary, salaryInput, userDTO));
     }
 
     //delete salary
     @DeleteMapping(value = "/{id}")
     public ResponseEntity<Void> deleteSalary(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @PathVariable Long id
     ) {
         Salary salary = salaryService.getSalaryById(id);
@@ -162,24 +175,21 @@ public class SalaryController {
             return ResponseEntity.notFound().build();
         }
 
-        UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-
         try {
-            OpalUserInput opalUserInput = new OpalUserInput(userDetails);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.salary)
-                    .id(id)
-                    .created_by(userDetails.getId())
+            OpalRequest opalRequest = OpalRequest.builder()
+                    .userId(userId)
+                    .action(Action.create)
+                    .resource(new Resource(ResourceType.salary))
                     .build();
-            if (!opalCLient.allow(OpalRequest.builder()
-                    .user(opalUserInput)
-                    .action(Action.delete)
-                    .resource(resource)
-                    .build())) {
+
+            log.info("Allowing Opal request: {}", opalRequest);
+
+            if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            log.info(e.getMessage());
+            return ResponseEntity.internalServerError().body(null);
         }
 
         salaryService.deleteSalary(salary);

@@ -1,6 +1,7 @@
 package com.ducthangchin.salary.services;
 
 import com.ducthangchin.commons.models.UserDetails;
+import com.ducthangchin.commons.models.dto.UserDTO;
 import com.ducthangchin.salary.entities.Salary;
 import com.ducthangchin.salary.models.SalaryInput;
 import com.ducthangchin.salary.models.SalaryUpdateInput;
@@ -31,7 +32,7 @@ public class SalaryService {
         return salaryRepository.findAllByCreatedBy(userId);
     }
 
-    public Salary createSalary(SalaryInput salary, UserDetails user) {
+    public Salary createSalary(SalaryInput salary, UserDTO user) {
         Salary salaryEntity = Salary.builder()
                 .employeeId(salary.getEmployeeId())
                 .amount(salary.getAmount())
@@ -44,7 +45,7 @@ public class SalaryService {
         return salaryRepository.saveAndFlush(salaryEntity);
     }
 
-    public Salary updateSalary(Salary salary, SalaryUpdateInput salaryInput, UserDetails user) {
+    public Salary updateSalary(Salary salary, SalaryUpdateInput salaryInput, UserDTO user) {
         if (salaryInput.getAmount() != null) {
             salary.setAmount(salaryInput.getAmount());
         }
@@ -61,6 +62,7 @@ public class SalaryService {
             salary.setPayPeriod(salaryInput.getPayPeriod());
         }
 
+        salary.setAccountantName(user.getFullName());
         return salaryRepository.saveAndFlush(salary);
     }
 

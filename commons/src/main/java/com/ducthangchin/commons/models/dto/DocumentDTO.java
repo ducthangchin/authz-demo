@@ -1,4 +1,4 @@
-package com.ducthangchin.document.dto;
+package com.ducthangchin.commons.models.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

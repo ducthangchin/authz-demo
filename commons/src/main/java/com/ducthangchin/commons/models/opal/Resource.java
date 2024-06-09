@@ -7,13 +7,11 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @ToString
-public class ResourceInput {
+public class Resource {
     private ResourceType type;
     private Long id;
-    private Long created_by;
-    private boolean blocked;
 
-    public ResourceInput(ResourceType resourceType) {
+    public Resource(ResourceType resourceType) {
         this.type = resourceType;
     }
 }

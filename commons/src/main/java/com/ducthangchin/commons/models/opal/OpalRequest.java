@@ -8,7 +8,7 @@ import lombok.*;
 @Builder
 @ToString
 public class OpalRequest {
-    private OpalUserInput user;
+    private Long userId;
     private Action action;
-    private ResourceInput resource;
+    private Resource resource;
 }

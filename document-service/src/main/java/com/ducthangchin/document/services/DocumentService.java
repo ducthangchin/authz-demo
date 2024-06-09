@@ -1,6 +1,6 @@
 package com.ducthangchin.document.services;
 
-import com.ducthangchin.document.dto.DocumentDTO;
+import com.ducthangchin.commons.models.dto.DocumentDTO;
 import com.ducthangchin.document.entities.Document;
 import com.ducthangchin.document.model.DocumentRequest;
 import com.ducthangchin.document.repositories.DocumentRepository;
@@ -16,6 +16,10 @@ public class DocumentService {
 
     public Document getDocument(Long id) {
         return documentRepository.findById(id).orElse(null);
+    }
+
+    public DocumentDTO getDocumentDTO(Long id) {
+        return documentRepository.findDocumentDTOById(id);
     }
 
     public List<DocumentDTO> getAllDocuments() {

@@ -1,10 +1,11 @@
 package com.ducthangchin.document.controllers;
 
-import com.ducthangchin.clientfeign.opal.OpalCLient;
-import com.ducthangchin.commons.models.UserDetails;
+import com.ducthangchin.clientfeign.opal.OpalClient;
+import com.ducthangchin.clientfeign.user.AuthClient;
+import com.ducthangchin.commons.models.dto.UserDTO;
 import com.ducthangchin.commons.models.opal.*;
 import com.ducthangchin.commons.utils.JwtUtils;
-import com.ducthangchin.document.dto.DocumentDTO;
+import com.ducthangchin.commons.models.dto.DocumentDTO;
 import com.ducthangchin.document.entities.Document;
 import com.ducthangchin.document.model.DocumentRequest;
 import com.ducthangchin.document.services.DocumentService;
@@ -23,33 +24,38 @@ import java.util.List;
 public class DocumentController {
     private final DocumentService documentService;
     private final JwtUtils jwtUtils;
-    private final OpalCLient opalCLient;
+    private final OpalClient opalCLient;
+    private final AuthClient authClient;
 
     @GetMapping
     public ResponseEntity<List<DocumentDTO>> getAllDocuments() {
         return ResponseEntity.ok(documentService.getAllDocuments());
     }
 
+    @GetMapping("/dto/{id}")
+    public ResponseEntity<DocumentDTO> getDocument(@PathVariable Long id) {
+        DocumentDTO document = documentService.getDocumentDTO(id);
+        if (document == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(document);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Document> getDocument(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long id) {
+            @RequestHeader("X-user-id") Long userId,
+            @PathVariable Long id
+    ) {
         Document document = documentService.getDocument(id);
         if (document == null) {
             return ResponseEntity.notFound().build();
         }
+
         try {
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.document)
-                    .id(id)
-                    .created_by(document.getCreatedBy())
-                    .blocked(document.isBlocked())
-                    .build();
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
                     .action(Action.read)
-                    .resource(resource)
+                    .resource(new Resource(ResourceType.document, id))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -61,19 +67,20 @@ public class DocumentController {
             log.info(e.getMessage());
             return ResponseEntity.internalServerError().body(null);
         }
+
         return ResponseEntity.ok(document);
     }
 
     @PostMapping
     public ResponseEntity<Document> createDocument(
-            @RequestHeader("Authorization") String token,
-            @RequestBody DocumentRequest document) {
+            @RequestHeader("X-user-id") Long userId,
+            @RequestBody DocumentRequest document
+    ) {
         try {
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
                     .action(Action.create)
-                    .resource(new ResourceInput(ResourceType.document))
+                    .resource(new Resource(ResourceType.document))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -81,41 +88,37 @@ public class DocumentController {
             if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            Document newDocument = Document.builder()
-                    .name(document.getName())
-                    .content(document.getContent())
-                    .createdBy(userDetails.getId())
-                    .createdByUsername(userDetails.getFullName())
-                    .build();
-            return ResponseEntity.ok(documentService.createDocument(newDocument));
         } catch (Exception e) {
             log.info(e.getMessage());
             return ResponseEntity.internalServerError().body(null);
         }
+
+        UserDTO userDetails = authClient.getProfile(userId).getBody();
+        Document newDocument = Document.builder()
+                .name(document.getName())
+                .content(document.getContent())
+                .createdBy(userDetails.getId())
+                .createdByUsername(userDetails.getFullName())
+                .build();
+        return ResponseEntity.ok(documentService.createDocument(newDocument));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Document> updateDocument(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @PathVariable Long id,
-            @RequestBody DocumentRequest document) {
+            @RequestBody DocumentRequest document
+    ) {
+        Document updatedDocument = documentService.getDocument(id);
+
+        if (updatedDocument == null) {
+            return ResponseEntity.notFound().build();
+        }
         try {
-            Document updatedDocument = documentService.getDocument(id);
-
-            if (updatedDocument == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.document)
-                    .id(id)
-                    .created_by(updatedDocument.getCreatedBy())
-                    .build();
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
                     .action(Action.update)
-                    .resource(resource)
+                    .resource(new Resource(ResourceType.document, id))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -123,35 +126,34 @@ public class DocumentController {
             if (!opalCLient.allow(opalRequest)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-
-            return ResponseEntity.ok(documentService.updateDocument(updatedDocument, document));
         } catch (Exception e) {
             log.info(e.getMessage());
             return ResponseEntity.internalServerError().body(null);
         }
+
+        UserDTO userDetails = authClient.getProfile(userId).getBody();
+
+        if (userDetails != null) {
+            updatedDocument.setCreatedByUsername(userDetails.getFullName());
+        }
+        return ResponseEntity.ok(documentService.updateDocument(updatedDocument, document));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDocument(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long id) {
-        Document document =  documentService.getDocument(id);
+            @RequestHeader("X-user-id") Long userId,
+            @PathVariable Long id
+    ) {
+        Document document = documentService.getDocument(id);
         if (document == null) {
             return ResponseEntity.notFound().build();
         }
 
         try {
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.document)
-                    .id(id)
-                    .created_by(document.getCreatedBy())
-                    .blocked(document.isBlocked())
-                    .build();
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
                     .action(Action.delete)
-                    .resource(resource)
+                    .resource(new Resource(ResourceType.document, id))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -169,26 +171,19 @@ public class DocumentController {
 
     @PutMapping("/{id}/block")
     public ResponseEntity<Document> blockDocument(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("X-user-id") Long userId,
             @PathVariable Long id,
-            @RequestBody Boolean block
-    ) {
+            @RequestBody Boolean block) {
         try {
-            Document document =  documentService.getDocument(id);
+            Document document = documentService.getDocument(id);
             if (document == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            UserDetails userDetails = jwtUtils.extractClaimsWithoutKey(token);
-            ResourceInput resource = ResourceInput.builder()
-                    .type(ResourceType.document)
-                    .id(id)
-                    .created_by(document.getCreatedBy())
-                    .build();
             OpalRequest opalRequest = OpalRequest.builder()
-                    .user(new OpalUserInput(userDetails))
+                    .userId(userId)
                     .action(Action.access_control)
-                    .resource(resource)
+                    .resource(new Resource(ResourceType.document, id))
                     .build();
 
             log.info("Allowing Opal request: {}", opalRequest);
@@ -202,6 +197,4 @@ public class DocumentController {
             return ResponseEntity.internalServerError().body(null);
         }
     }
-
-
 }

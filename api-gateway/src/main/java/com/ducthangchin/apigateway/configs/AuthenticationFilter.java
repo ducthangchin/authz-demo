@@ -1,5 +1,6 @@
 package com.ducthangchin.apigateway.configs;
 
+import com.ducthangchin.commons.models.UserDetails;
 import com.ducthangchin.commons.utils.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,13 +41,13 @@ public class AuthenticationFilter implements GatewayFilter {
             final String token = this.getAuthHeader(request);
 
             try {
-                if (!jwtUtils.isValidToken(token, jwtSecret)) {
-                    return this.onError(exchange, HttpStatus.UNAUTHORIZED);
-                }
+                UserDetails userDetails = jwtUtils.extractClaims(token, jwtSecret);
+                updateRequest(exchange, userDetails);
             } catch (Exception e) {
-                return this.onError(exchange, HttpStatus.FORBIDDEN);
+                return this.onError(exchange, HttpStatus.UNAUTHORIZED);
             }
         }
+
         return chain.filter(exchange);
     }
 
@@ -64,13 +65,10 @@ public class AuthenticationFilter implements GatewayFilter {
         return !request.getHeaders().containsKey("Authorization");
     }
 
-//    private void updateRequest(ServerWebExchange exchange, UserDetails userDetails) {
-//
-//        exchange.getRequest().mutate()
-//                .header("id", String.valueOf(userDetails.getId()))
-//                .header("email", userDetails.getEmail())
-//                .header("fullName", userDetails.getFullName())
-//                .header("roles", String.join(",", userDetails.getRoles()))
-//                .build();
-//    }
+    private void updateRequest(ServerWebExchange exchange, UserDetails userDetails) {
+        exchange.getRequest().mutate()
+                .header("X-user-id", String.valueOf(userDetails.getId()))
+                .header("X-email", userDetails.getEmail())
+                .build();
+    }
 }
