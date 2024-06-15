@@ -10,11 +10,15 @@ import com.ducthangchin.opal.models.DocumentResourceInput;
 import com.ducthangchin.opal.models.OpalRequestInput;
 import com.ducthangchin.opal.models.ResourceInput;
 import com.ducthangchin.opal.models.SalaryResourceInput;
+import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.Map;
 
 @Component
@@ -23,25 +27,56 @@ public class OpalService {
     @Value("${opal.client.url}")
     private String opalServiceUrl;
 
+    @Value("${redis.cache.ttl}")
+    private Integer cacheTtl;
+
     private final RestTemplate restTemplate;
     private final AuthClient authClient;
     private final DocumentClient documentClient;
     private final SalaryClient salaryClient;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public OpalService(
             RestTemplate restTemplate,
             AuthClient authClient,
             DocumentClient documentClient,
-            SalaryClient salaryClient
+            SalaryClient salaryClient,
+            RedisTemplate<String, Object> redisTemplate
     ) {
         this.restTemplate = restTemplate;
         this.authClient = authClient;
         this.documentClient = documentClient;
         this.salaryClient = salaryClient;
+        this.redisTemplate = redisTemplate;
     }
 
     public UserDTO getUserById(Long id) {
-        return authClient.getProfile(id).getBody();
+        String key = "user-" + id;
+
+        UserDTO user = (UserDTO) redisTemplate.opsForValue().get(key);
+        if (user != null) {
+            log.info("Get user with id {} in cache", id);
+            return user;
+        }
+
+        try {
+            ResponseEntity<UserDTO> response = authClient.getProfile(id);
+            user = response.getBody();
+
+            if (user != null) {
+                redisTemplate.opsForValue().set(key, user, Duration.ofSeconds(cacheTtl));
+                log.info("Stored user with id {} in cache", id);
+            }
+        } catch (FeignException e) {
+            if (e.status() == 404) {
+                log.info("User with id {} not found", id);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Error fetching user with id {} from auth client", id);
+            throw new RuntimeException("Failed to fetch user", e);
+        }
+        return user;
     }
 
     public ResourceInput getResourceInput(Resource resource) {
@@ -64,16 +99,23 @@ public class OpalService {
 
     private DocumentResourceInput getDocumentResourceInput(Long id) {
         DocumentResourceInput resourceInput = new DocumentResourceInput();
-        try {
-            DocumentDTO document = documentClient.getDocument(id).getBody();
-            if (document != null) {
-                resourceInput.setId(document.getId());
-                resourceInput.setCreated_by(document.getCreatedBy());
-                resourceInput.setBlocked(document.getBlocked());
+        String key = "document-" + id;
+        DocumentDTO document = (DocumentDTO) redisTemplate.opsForValue().get(key);
+        if (document == null) {
+            try {
+                document = documentClient.getDocument(id).getBody();
+                if (document != null) {
+                    redisTemplate.opsForValue().set(key, document, Duration.ofSeconds(cacheTtl));
+                    log.info("Stored document with id {} in cache", id);
+                }
+            } catch (Exception e) {
+                log.info("Exception {}", e.getMessage());
             }
-
-        } catch (Exception e) {
-            log.info("Exception e");
+        }
+        if (document != null) {
+            resourceInput.setId(document.getId());
+            resourceInput.setCreated_by(document.getCreatedBy());
+            resourceInput.setBlocked(document.getBlocked());
         }
         return resourceInput;
     }
@@ -86,8 +128,8 @@ public class OpalService {
 
     public boolean allow(OpalRequestInput request) {
         String url = opalServiceUrl + "/v1/data/app/rbac/allow";
-        log.info("opal service url {}", url);
-        log.info("Sending to opal with request input {}", request);
+//        log.info("opal service url {}", url);
+//        log.info("Sending to opal with request input {}", request);
 
         try {
             Map<String, OpalRequestInput> requestBody = Map.of("input", request);

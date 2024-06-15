@@ -20,6 +20,10 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+  redis:
+    image: redis:7.0
+#    ports:
+#      - "6379:6379"
   zipkin:
     image: openzipkin/zipkin:3
     ports:
@@ -159,14 +163,25 @@ services:
       dockerfile: Dockerfile
       args:
         APP_VERSION: ${APP_VERSION}
-    #    ports:
-    #      - "8084:8084"
+    ports:
+      - "8084:8084"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
       #     - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - OPAL_CLIENT_URL=http://opal_client:8181
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - eureka-server
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: '512M'
+        reservations:
+          cpus: '1.5'
+          memory: '256M'
   gateway-service:
     build:
       context: ./api-gateway
@@ -183,7 +198,6 @@ services:
       - eureka-server
       - user-service
       - salary-service
-
 
 volumes:
   local_pgdata:

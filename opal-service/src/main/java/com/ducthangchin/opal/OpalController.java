@@ -20,9 +20,10 @@ public class OpalController {
     //check authorization
     @PostMapping("/allow")
     public boolean allow(@RequestBody OpalRequest request) {
-        log.info("Checking authorization for request: {}", request);
+//        log.info("Checking authorization for request: {}", request);
 
         UserDTO user = opalService.getUserById(request.getUserId());
+        if (user == null) return false;
         ResourceInput resourceInput = opalService.getResourceInput(request.getResource());
 
         return opalService.allow(OpalRequestInput.builder()
